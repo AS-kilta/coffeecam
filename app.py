@@ -21,6 +21,3 @@ def getImage():
 	success, image = stream.read()
 
 	cv2.imwrite(savePath, image)
-
-if __name__ == "__main__":
-
