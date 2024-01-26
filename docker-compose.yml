@@ -1,5 +1,8 @@
 services:
   application:
     image: ghcr.io/as-kilta/coffeecam:latest
-
     env_file: .env
+    extra_hosts:
+      - "api.telegram.org:149.154.167.220"
+    restart: unless-stopped
+
