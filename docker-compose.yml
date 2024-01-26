@@ -1,0 +1,5 @@
+services:
+  application:
+    image: ghcr.io/as-kilta/coffeecam:latest
+
+    env_file: .env
