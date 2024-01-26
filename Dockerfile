@@ -1,10 +1,10 @@
 # syntax=docker/dockerfile:1
-   
+
 FROM python:3.9
 
 WORKDIR /coffeeCam
 
-RUN apt-get update && apt-get install libgl1  -y
+RUN apt-get update && apt-get install ffmpeg libsm6 libxext6  -y
 
 COPY . .
 
