@@ -3,7 +3,7 @@ import cv2
 
 from decouple import config
 
-def gitImage():
+def getImage():
 	TAPO_USERNAME = config("TAPO_USERNAME")
 	TAPO_PASSWORD = config("TAPO_PASSWORD")
 
