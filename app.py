@@ -3,7 +3,7 @@ import cv2
 
 from decouple import config
 
-def getImage():
+def getImage() -> bool:
 	TAPO_USERNAME = config("TAPO_USERNAME")
 	TAPO_PASSWORD = config("TAPO_PASSWORD")
 
@@ -11,7 +11,7 @@ def getImage():
 	PORT = 554 # The port used by the server
 
 	url = f"rtsp://{TAPO_USERNAME}:{TAPO_PASSWORD}@{HOST}:{PORT}/stream1"
-	savePath = "pic1.jpeg"
+	savePath = "newest.jpeg"
 
 	try:
 		stream = cv2.VideoCapture(url)
@@ -20,4 +20,6 @@ def getImage():
 
 	success, image = stream.read()
 
-	cv2.imwrite(savePath, image)
+	if success:
+		success = cv2.imwrite(savePath, image)
+	return success
