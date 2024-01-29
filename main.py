@@ -38,14 +38,16 @@ def fetch_tapo_photo(context: ContextTypes.DEFAULT_TYPE) -> str:
 
     # If getting an image fails, don't give an old image.
     if getImage():
-        latest = time.time()
+        context.bot_data["latest-time"] = time.time()
         return "/mnt/ramdisk/newest.jpeg"
     else:
         return ""
 
 # Handle asking for coffee status.
 async def coffee(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    caption_text = "Something's wrong, I can feel it.."
+    caption_text = "This might take a while..."
+    await context.bot.send_message(chat_id=update.effective_chat.id, text=caption_text)
+
     photo_url = ""
     photo_url = fetch_tapo_photo(context)
     caption_text = get_answer(photo_url)
@@ -77,17 +79,17 @@ if __name__ == '__main__':
     start_handler = CommandHandler('start', start)
     application.add_handler(start_handler)
 
-    start_handler = CommandHandler('help', start)
-    application.add_handler(start_handler)
+    help_handler = CommandHandler('help', start)
+    application.add_handler(help_handler)
 
     coffee_handler = CommandHandler('coffee', coffee)
     application.add_handler(coffee_handler)
 
-    coffee_handler = CommandHandler('howto', howto)
-    application.add_handler(coffee_handler)
+    howto_handler = CommandHandler('howto', howto)
+    application.add_handler(howto_handler)
 
-    coffee_handler = CommandHandler('howtolong', howtolong)
-    application.add_handler(coffee_handler)
+    howtolong_handler = CommandHandler('howtolong', howtolong)
+    application.add_handler(howtolong_handler)
 
     # Run application
     application.run_polling()
