@@ -24,22 +24,22 @@ def get_answer(photo_url: str) -> str :
 
 # Function to fetch photo from Tapo Camera
 def fetch_tapo_photo(context: ContextTypes.DEFAULT_TYPE) -> str:
-    # latest = context.bot_data.get("latest-time")
+    latest = context.bot_data.get("latest-time")
 
-    # # First time calling function. Initialize latest as 25 seconds before,
-    # # so that a new image will be fetched.
-    # if latest == None:
-    #     latest = time.time() - 25
-    #     context.bot_data["latest-time"] = time.time()
+    # First time calling function. Initialize latest as 25 seconds before,
+    # so that a new image will be fetched.
+    if latest == None:
+        latest = time.time() - 25
+        context.bot_data["latest-time"] = time.time()
 
-    # # Don't fetch a new image more often than every 20 seconds.
-    # if latest - time.time() < 20:
-    #     return "newest.jpeg"
+    # Don't fetch a new image more often than every 20 seconds.
+    if time.time() - latest < 20:
+        return "/mnt/ramdisk/newest.jpeg"
 
     # If getting an image fails, don't give an old image.
     if getImage():
-        # latest = time.time()
-        return "newest.jpeg"
+        latest = time.time()
+        return "/mnt/ramdisk/newest.jpeg"
     else:
         return ""
 

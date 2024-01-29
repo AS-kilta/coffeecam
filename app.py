@@ -11,7 +11,7 @@ def getImage() -> bool:
 	PORT = 554 # The port used by the server
 
 	url = f"rtsp://{TAPO_USERNAME}:{TAPO_PASSWORD}@{HOST}:{PORT}/stream1"
-	savePath = "newest.jpeg"
+	savePath = "/mnt/ramdisk/newest.jpeg"
 
 	try:
 		stream = cv2.VideoCapture(url)
