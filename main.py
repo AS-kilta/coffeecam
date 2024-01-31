@@ -78,7 +78,8 @@ async def insert_thought(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     
     latest_thought = context.user_data.get("latest-thought")
     if latest_thought != None and (time.time() - latest_thought) < 60*60*2:
-        await context.bot.send_message(chat_id=update.effective_chat.id, text="Hol' up! only one coffee thought every 2 hours.. Go drink some coffee!")
+        time_until = ( (latest_thought + 60*60*2) - time.time() ) / float(60)
+        await context.bot.send_message(chat_id=update.effective_chat.id, text="Hol' up! Only one coffee thought every 2 hours.. Still " + time_until + "minutes till the next one, go drink some coffee!")
         return
 
     with open(THOUGHTS, 'a+') as output_file:
