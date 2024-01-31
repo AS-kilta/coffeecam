@@ -7,4 +7,5 @@ services:
     restart: unless-stopped
     volumes:
       - /mnt/ramdisk:/mnt/ramdisk
+      - ./thoughts:/coffeeCam/thoughts
 

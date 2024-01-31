@@ -1,14 +1,16 @@
 import logging
-import time
 from telegram import Update
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler
 from decouple import config
-from app import getImage
-from functions import howto, howtolong
+from functions import howto, howtolong, coffee
+import time
+from random import randrange
 
 # Load environment variables from .env
 TELEGRAM_TOKEN = config('TELEGRAM_TOKEN')
 ADMIN_PASSWD = config('ADMIN_PASSWD')
+THOUGHTS = config('THOUGHTS')
+DATABASE = config('DATABASE')
 
 # Enable logging
 logging.basicConfig(
@@ -58,53 +60,46 @@ async def give_general_message(update: Update, context: ContextTypes.DEFAULT_TYP
 
 # User functions
 
-# Helper to create the caption or text (possibly based on the image or lack thereof)
-def get_answer(photo_url: str) -> str :
-    if photo_url != "":
-        "There definitely is something!"
-    else:
-        return "Something's wrong, I can feel it!"
+# Handle inserting a coffee thought
+async def insert_thought(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
+    message_content = update.message.text
+    if message_content == None:
+        await context.bot.send_message(chat_id=update.effective_chat.id, text="Something went wrong!")
 
-# Function to fetch photo from Tapo Camera
-async def fetch_tapo_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
-    latest = context.bot_data.get("latest-time")
+    content = message_content.split(';')
+    if len(content) != 2:
+        await context.bot.send_message(chat_id=update.effective_chat.id, text="This method can be used to insert a /coffeethought.\nUsage: /insertthought ;<your quote or thought that may or may not have something to do with coffee>")
+        return
+    thought = content[1]
 
-    # First time calling function. Initialize latest as 25 seconds before,
-    # so that a new image will be fetched.
-    if latest == None:
-        latest = time.time() - 25
-        context.bot_data["latest-time"] = time.time()
+    if len(thought) < 10:
+        await context.bot.send_message(chat_id=update.effective_chat.id, text="Your thought should be at least 10 characters long")
+        return
+    
+    latest_thought = context.user_data.get("latest-thought")
+    if latest_thought != None and (time.time() - latest_thought) < 60*60*2:
+        await context.bot.send_message(chat_id=update.effective_chat.id, text="Hol' up! only one coffee thought every 2 hours.. Go drink some coffee!")
+        return
 
-    # Don't fetch a new image more often than every 20 seconds.
-    if time.time() - latest < 20:
-        return "/mnt/ramdisk/newest.jpeg"
+    with open(THOUGHTS, 'a+') as output_file:
+        output_file.write(thought)
+        with open(DATABASE, 'a+') as db_file:
+            db_file.write(thought + "\n")
+            context.user_data["latest-thought"] = time.time()
+            await context.bot.send_message(chat_id=update.effective_chat.id, text="Added '" + thought + "' as a coffeethought.")
+    
 
-    caption_text = "This might take a while..."
-    await context.bot.send_message(chat_id=update.effective_chat.id, text=caption_text)
+# Handle giving a random coffee thought
+async def coffee_thought(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    with open(THOUGHTS, 'r') as output_file:
+        lines = output_file.readlines()
+        length = len(lines)
+        if length < 1:
+            await context.bot.send_message(chat_id=update.effective_chat.id, text="There don't seem to be any coffee thoughts? Get to writing with /insertthought")
 
-    # If getting an image fails, don't give an old image.
-    if getImage():
-        context.bot_data["latest-time"] = time.time()
-        return "/mnt/ramdisk/newest.jpeg"
-    else:
-        return ""
-
-# Handle asking for coffee status.
-async def coffee(update: Update, context: ContextTypes.DEFAULT_TYPE):
-
-    photo_url = ""
-    caption_text = "Something went wrong.."
-    photo_url = await fetch_tapo_photo(update, context)
-    #caption_text = get_answer(photo_url)
-    general_message = context.bot_data.get("general-message")
-    if (general_message != None) or (general_message == ""):
-        caption_text = context.bot_data.get("general-message")
-
-    # Send the photo to the user
-    if photo_url != "":
-        await context.bot.send_photo(chat_id=update.effective_chat.id, photo=photo_url, caption=caption_text)
-    else:
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=caption_text)
+        index = randrange(0, length, 1)
+        thought = lines[index]
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=thought)
 
 # Handle start command
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -116,12 +111,35 @@ Available commands:\n\
  - /help See this message.\n\
  - /coffee See the coffee machine.\n\
  - /howto Things to remember when making coffee.\n\
- - /howtolong How to make coffee.")
+ - /howtolong How to make coffee.\n\
+ - /insertthought Insert a coffee thought.\n\
+ - /coffeethought Randomly give one coffee thought.")
 
+# Initialize and run the bot
 if __name__ == '__main__':
 
     # Create the application
     application = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
+
+    try:
+        file_content = ""
+        # Open the input file in read mode
+        with open(DATABASE, 'r') as input_file:
+            # Read the content of the input file
+            file_content = input_file.read()
+
+        # Open the output file in write mode
+        with open(THOUGHTS, 'w+') as output_file:
+            # Write the content to the output file
+            output_file.write(file_content)
+
+        print(f"Content successfully copied from {DATABASE} to {THOUGHTS}")
+
+    except FileNotFoundError:
+        print(f"Error: The file at {DATABASE} was not found.")
+
+    except Exception as e:
+        print(f"An error occurred: {str(e)}")
 
     # Add handlers
     start_handler = CommandHandler('start', start)
@@ -147,6 +165,12 @@ if __name__ == '__main__':
 
     ahelp_handler = CommandHandler("adminhelp", admin_help)
     application.add_handler(ahelp_handler)
+
+    gt_handler = CommandHandler("insertthought", insert_thought)
+    application.add_handler(gt_handler)
+
+    ct_handler = CommandHandler("coffeethought", coffee_thought)
+    application.add_handler(ct_handler)
 
     # Run application
     application.run_polling()
