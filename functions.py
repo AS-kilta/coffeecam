@@ -41,7 +41,7 @@ async def fetch_tapo_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 async def coffee(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     photo_url = ""
-    caption_text = "Something went wrong.."
+    caption_text = ""
     photo_url = await fetch_tapo_photo(update, context)
     #caption_text = get_answer(photo_url)
     general_message = context.bot_data.get("general-message")

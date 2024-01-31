@@ -5,6 +5,7 @@ from decouple import config
 from functions import howto, howtolong, coffee
 import time
 from random import randrange
+import portalocker
 
 # Load environment variables from .env
 TELEGRAM_TOKEN = config('TELEGRAM_TOKEN')
@@ -75,24 +76,25 @@ async def insert_thought(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     if len(thought) < 10:
         await context.bot.send_message(chat_id=update.effective_chat.id, text="Your thought should be at least 10 characters long")
         return
-    
-    latest_thought = context.user_data.get("latest-thought")
+
+    latest_thought: int = context.user_data.get("latest-thought")
     if latest_thought != None and (time.time() - latest_thought) < 60*60*2:
         time_until = ( (latest_thought + 60*60*2) - time.time() ) / float(60)
-        await context.bot.send_message(chat_id=update.effective_chat.id, text="Hol' up! Only one coffee thought every 2 hours.. Still " + time_until + "minutes till the next one, go drink some coffee!")
+        response = f'Hol\' up! Only one coffee thought every 2 hours.. Still {time_until:.3f} minutes till the next one, go drink some coffee!'
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=response)
         return
 
-    with open(THOUGHTS, 'a+') as output_file:
+    with portalocker.Lock(THOUGHTS, 'r+') as output_file:
+        portalocker.lock(output_file, portalocker.LOCK_EX)
         output_file.write(thought)
-        with open(DATABASE, 'a+') as db_file:
+        with portalocker.Lock(DATABASE, 'r+') as db_file:
             db_file.write(thought + "\n")
             context.user_data["latest-thought"] = time.time()
             await context.bot.send_message(chat_id=update.effective_chat.id, text="Added '" + thought + "' as a coffeethought.")
-    
 
 # Handle giving a random coffee thought
 async def coffee_thought(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    with open(THOUGHTS, 'r') as output_file:
+    with portalocker.Lock(THOUGHTS, 'r') as output_file:
         lines = output_file.readlines()
         length = len(lines)
         if length < 1:
@@ -124,13 +126,13 @@ if __name__ == '__main__':
 
     try:
         file_content = ""
-        # Open the input file in read mode
-        with open(DATABASE, 'r') as input_file:
+        # portalocker.Lock the input file in read mode
+        with portalocker.Lock(DATABASE, 'r') as input_file:
             # Read the content of the input file
             file_content = input_file.read()
 
-        # Open the output file in write mode
-        with open(THOUGHTS, 'w+') as output_file:
+        # portalocker.Lock the output file in write mode
+        with portalocker.Lock(THOUGHTS, 'w+') as output_file:
             # Write the content to the output file
             output_file.write(file_content)
 
