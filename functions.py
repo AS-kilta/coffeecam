@@ -27,7 +27,7 @@ async def fetch_tapo_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     if time.time() - latest < 20:
         return "/mnt/ramdisk/newest.jpeg"
 
-    caption_text = "This might take a while..."
+    caption_text = "This will take a few seconds..."
     await context.bot.send_message(chat_id=update.effective_chat.id, text=caption_text)
 
     # If getting an image fails, don't give an old image.

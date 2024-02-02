@@ -4,7 +4,7 @@ from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler
 from decouple import config
 from functions import howto, howtolong, coffee
 import time
-from random import randrange
+from random import randrange, seed
 import portalocker
 
 # Load environment variables from .env
@@ -26,7 +26,7 @@ async def admin_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(chat_id=update.effective_chat.id, text="\
 These are the admin commands:\n\
  - /adminhelp see this text.\n\
- - /givemessage <password>;<general-message>\n\
+ - /givemessage <password> <general-message>\n\
  - /clearmessage <password>\n\
 Givemessage is used to give a general info message that is displayed to users when using /coffee.\n\
 Clearmessage clears this message")
@@ -34,75 +34,101 @@ Clearmessage clears this message")
 # Clear general message
 async def clear_general_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message_content = update.message.text
+
+    # Require password in message
     if (message_content == None) or (not ADMIN_PASSWD in message_content):
         await context.bot.send_message(chat_id=update.effective_chat.id, text="This method clears the general info message to display to users.\nUsage: /clearmessage <password>")
         return
 
+    # Clear message and tell it in message.
     context.bot_data["general-message"] = ""
-    
     await context.bot.send_message(chat_id=update.effective_chat.id, text="Cleared the general message")
     return
 
 # Give general message
 async def give_general_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+    # Require password
     message_content = update.message.text
-    if (message_content == None) or (not ADMIN_PASSWD in message_content):
+    if (message_content == None) or not(ADMIN_PASSWD in message_content):
         await context.bot.send_message(chat_id=update.effective_chat.id, text="You shouldn't be here!")
         return
 
-    content = message_content.split(";")
-    if len(content) != 2:
-        await context.bot.send_message(chat_id=update.effective_chat.id, text="This method gives a general info message to display to users.\nUsage: /givemessage <password>;<message here>")
+    # Require a valid message
+    content = message_content.split(' ')
+    if len(content) <= 2:
+        await context.bot.send_message(chat_id=update.effective_chat.id, text="This method gives a general info message to display to users.\nUsage: /givemessage <password> <message here>")
 
-    context.bot_data["general-message"] = content[1]
-    
-    await context.bot.send_message(chat_id=update.effective_chat.id, text="Added '" + content[1] + "' as the general message.")
+    # If second word in message is not password, then the password would be in the info message.
+    if content[1] != ADMIN_PASSWD:
+        await context.bot.send_message(chat_id=update.effective_chat.id, text="Usage: /givemessage <password> <message here>")
+        return
+
+    # Change message and tell it in message.
+    context.bot_data["general-message"] = " ".join(content[2:])
+    await context.bot.send_message(chat_id=update.effective_chat.id, text="Added '" + " ".join(content[2:]) + "' as the general message.")
     return
 
 # User functions
 
-# Handle inserting a coffee thought
-async def insert_thought(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
+# Handle inserting a coffee quote
+async def insert_quote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
+
+    # Message should contain something
     message_content = update.message.text
     if message_content == None:
         await context.bot.send_message(chat_id=update.effective_chat.id, text="Something went wrong!")
 
-    content = message_content.split(';')
-    if len(content) != 2:
-        await context.bot.send_message(chat_id=update.effective_chat.id, text="This method can be used to insert a /coffeethought.\nUsage: /insertthought ;<your quote or thought that may or may not have something to do with coffee>")
-        return
-    thought = content[1]
-
-    if len(thought) < 10:
-        await context.bot.send_message(chat_id=update.effective_chat.id, text="Your thought should be at least 10 characters long")
+    # Message should have at least the command and one other word
+    content = message_content.split(' ')
+    if len(content) < 2:
+        await context.bot.send_message(chat_id=update.effective_chat.id, text="This method can be used to insert a /quote.\nUsage: /addq <your quote or thought that may or may not have something to do with coffee>")
         return
 
-    latest_thought: int = context.user_data.get("latest-thought")
-    if latest_thought != None and (time.time() - latest_thought) < 60*60*2:
-        time_until = ( (latest_thought + 60*60*2) - time.time() ) / float(60)
-        response = f'Hol\' up! Only one coffee thought every 2 hours.. Still {time_until:.3f} minutes till the next one, go drink some coffee!'
+    # Join rest of the message as the quote, quote should be at least 10 chars long
+    quote = " ".join(content[1:])
+    if len(quote) < 10:
+        await context.bot.send_message(chat_id=update.effective_chat.id, text="Your quote should be at least 10 characters long")
+        return
+
+    # Allow only one quote per 2 hours
+    latest_quote: int = context.user_data.get("latest-quote")
+    if latest_quote != None and (time.time() - latest_quote) < 60*60*2:
+        time_until = ( (latest_quote + 60*60*2) - time.time() ) / float(60)
+        response = f'Hol\' up! Only one coffee quote every 2 hours.. Still {time_until:.3f} minutes till the next one, go drink some coffee!'
         await context.bot.send_message(chat_id=update.effective_chat.id, text=response)
         return
 
-    with portalocker.Lock(THOUGHTS, 'r+') as output_file:
-        portalocker.lock(output_file, portalocker.LOCK_EX)
-        output_file.write(thought)
-        with portalocker.Lock(DATABASE, 'r+') as db_file:
-            db_file.write(thought + "\n")
-            context.user_data["latest-thought"] = time.time()
-            await context.bot.send_message(chat_id=update.effective_chat.id, text="Added '" + thought + "' as a coffeethought.")
+    # Aquire a lock for both the temp file in ram, and the persistent file in disk, and write it there
+    try:
+        with portalocker.Lock(THOUGHTS, 'a') as output_file:
+            portalocker.lock(output_file, portalocker.LOCK_EX)
+            output_file.write(quote)
+            with portalocker.Lock(DATABASE, 'a') as db_file:
+                db_file.write(quote + "\n")
+                context.user_data["latest-quote"] = time.time()
+                await context.bot.send_message(chat_id=update.effective_chat.id, text="Added '" + quote + "' as a quote.")
+    except:
+        await context.bot.send_message(chat_id=update.effective_chat.id, text="Something went wrong...")
 
-# Handle giving a random coffee thought
-async def coffee_thought(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    with portalocker.Lock(THOUGHTS, 'r') as output_file:
-        lines = output_file.readlines()
-        length = len(lines)
-        if length < 1:
-            await context.bot.send_message(chat_id=update.effective_chat.id, text="There don't seem to be any coffee thoughts? Get to writing with /insertthought")
+# Handle giving a random coffee quote
+async def coffee_quote(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        with portalocker.Lock(THOUGHTS, 'r') as output_file:
+            lines = output_file.readlines()
+            length = len(lines)
 
-        index = randrange(0, length, 1)
-        thought = lines[index]
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=thought)
+            # File was empty
+            if length < 1:
+                await context.bot.send_message(chat_id=update.effective_chat.id, text="There don't seem to be any coffee quotes? Get to writing with /addq")
+
+            # Randomize a single quote
+            seed(time.process_time())
+            index = randrange(0, length, 1)
+            quote = lines[index]
+            await context.bot.send_message(chat_id=update.effective_chat.id, text=quote)
+    except:
+        await context.bot.send_message(chat_id=update.effective_chat.id, text="Something went really wrong..")
 
 # Handle start command
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -115,8 +141,8 @@ Available commands:\n\
  - /coffee See the coffee machine.\n\
  - /howto Things to remember when making coffee.\n\
  - /howtolong How to make coffee.\n\
- - /insertthought Insert a coffee thought.\n\
- - /coffeethought Randomly give one coffee thought.")
+ - /addq or /addquote Insert a coffee quote.\n\
+ - /q or /quote Randomly give one coffee quote.")
 
 # Initialize and run the bot
 if __name__ == '__main__':
@@ -169,10 +195,16 @@ if __name__ == '__main__':
     ahelp_handler = CommandHandler("adminhelp", admin_help)
     application.add_handler(ahelp_handler)
 
-    gt_handler = CommandHandler("insertthought", insert_thought)
+    gt_handler = CommandHandler("addq", insert_quote)
     application.add_handler(gt_handler)
 
-    ct_handler = CommandHandler("coffeethought", coffee_thought)
+    gt_handler = CommandHandler("addquote", insert_quote)
+    application.add_handler(gt_handler)
+
+    ct_handler = CommandHandler("q", coffee_quote)
+    application.add_handler(ct_handler)
+
+    ct_handler = CommandHandler("quote", coffee_quote)
     application.add_handler(ct_handler)
 
     # Run application
