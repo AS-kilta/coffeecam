@@ -1,4 +1,4 @@
 python-decouple
 opencv-python
-python-telegram-bot
+python-telegram-bot[job-queue]
 portalocker

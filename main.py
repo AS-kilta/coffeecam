@@ -6,12 +6,15 @@ from functions import howto, howtolong, coffee
 import time
 from random import randrange, seed
 import portalocker
+import datetime
 
 # Load environment variables from .env
 TELEGRAM_TOKEN = config('TELEGRAM_TOKEN')
 ADMIN_PASSWD = config('ADMIN_PASSWD')
-THOUGHTS = config('THOUGHTS')
+STORE = config('STORE')
 DATABASE = config('DATABASE')
+DATABASE2 = config('DATABASE2')
+rating_times = ['daily', 'weekly', 'all-time']
 
 # Enable logging
 logging.basicConfig(
@@ -71,13 +74,157 @@ async def give_general_message(update: Update, context: ContextTypes.DEFAULT_TYP
 
 # User functions
 
-# Handle inserting a coffee quote
-async def insert_quote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
+# Handle rating coffee
+async def rate_coffee(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Message should contain something
     message_content = update.message.text
     if message_content == None:
         await context.bot.send_message(chat_id=update.effective_chat.id, text="Something went wrong!")
+        return
+
+    # Message should have precisely the command and a single digit integer 0-5
+    content = message_content.split(' ')
+    if len(content) != 2:
+        await context.bot.send_message(chat_id=update.effective_chat.id, text="This method can be used to insert a /rating.\nUsage: /rate <rating between 0-5 as an integer>")
+        return
+
+    # Rest of the message is the rating, it should be convertible to Int.
+    raw = content[1]
+    try:
+        rating = int(raw)
+    except:
+        await context.bot.send_message(chat_id=update.effective_chat.id, text="Your rating should be a single digit integer between 0-5!")
+        return
+        
+    if len(raw) > 1 or rating > 5:
+        await context.bot.send_message(chat_id=update.effective_chat.id, text="Your rating should be a single digit integer between 0-5!")
+
+    # Allow only one rating per 10 minutes
+    latest_rating: int = context.user_data.get("latest-rating")
+    if latest_rating != None and (time.time() - latest_rating) < 60*10:
+        time_until = ( (latest_rating + 10*60) - time.time() ) / float(60)
+        response = f'Hol\' up! Only one coffee rating every 10 minutes.. Still {time_until:.3f} minutes till the next one, go taste some coffee!'
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=response)
+        return
+    
+    # Record the rating
+    if rating_backend(rating, context):
+        context.user_data["latest-rating"] = time.time()
+        await context.bot.send_message(chat_id=update.effective_chat.id, text="Recorded rating: " + raw)
+    else:
+        await context.bot.send_message(chat_id=update.effective_chat.id, text="Something went wrong..")
+
+# Handle storing the ratings
+def rating_backend(rating: int, context: ContextTypes.DEFAULT_TYPE, clear_day = False, clear_week = False) -> bool:
+    # If this is the first time recording a rating per bot lifetime, read them from disk
+    if context.bot_data.get("ratings-in-ram") is None:
+        read_ratings_from_disk(context)
+        context.bot_data["ratings-in-ram"] = True
+
+    # Get Ratings from bot data
+    ratings = []
+    for time in rating_times:
+        points = context.bot_data.get(f'total-{time}')
+        count = context.bot_data.get(f'n-{time}')
+
+        # First time, init
+        if points is None or count is None:
+            context.bot_data[f'total-{time}'] = rating
+            context.bot_data[f'n-{time}'] = 1
+        # Add rating and increment count
+        else:
+            if clear_day and time == 'daily':
+                context.bot_data[f'total-{time}'] = 0
+                context.bot_data[f'n-{time}'] = 0
+            elif clear_week and time == 'weekly':
+                context.bot_data[f'total-{time}'] = 0
+                context.bot_data[f'n-{time}'] = 0
+            elif clear_day or clear_week:
+                pass
+            else:
+                context.bot_data[f'total-{time}'] += rating
+                context.bot_data[f'n-{time}'] += 1
+ 
+        ratings.append(context.bot_data[f'total-{time}'])
+        ratings.append(context.bot_data[f'n-{time}'])
+
+    # Write the rating data to DB
+    try:
+        with portalocker.Lock(DATABASE2, 'w') as db_file:
+            for line in ratings:
+                db_file.write("%d\n" % line)
+            return True
+    except:
+        return False
+    
+def clear_daily(context: ContextTypes.DEFAULT_TYPE):
+    rating_backend(0, context, True)
+    pass
+
+def clear_weekly(context: ContextTypes.DEFAULT_TYPE):
+    rating_backend(0, context, False, True)
+    pass
+
+def read_ratings_from_disk(context: ContextTypes.DEFAULT_TYPE) -> bool:
+    # if context.bot_data.get("clearers-inited") is None:
+    #     context.bot_data["clearers-inited"] = True
+
+    try:
+        # portalocker.Lock the input file in read mode
+        with portalocker.Lock(DATABASE2, 'r') as input_file:
+            # Read the content of the input file
+            file_content = input_file.read().split()
+            print(file_content)
+
+            if len(file_content) != 6:
+                return False
+            context.bot_data[f'total-{rating_times[0]}'] = int(file_content[0])
+            context.bot_data[f'n-{rating_times[0]}'] = int(file_content[1])
+
+            context.bot_data[f'total-{rating_times[1]}'] = int(file_content[2])
+            context.bot_data[f'n-{rating_times[1]}'] = int(file_content[3])
+
+            context.bot_data[f'total-{rating_times[2]}'] = int(file_content[4])
+            context.bot_data[f'n-{rating_times[2]}'] = int(file_content[5])
+
+            return True
+
+    except:
+        print(f"Error: The file was not found.")
+    return False
+
+# Handle rating coffee
+async def get_rating(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Calculate and give ratings
+    if context.bot_data.get("ratings-in-ram") is None:
+        if not read_ratings_from_disk(context):
+            await context.bot.send_message(chat_id=update.effective_chat.id, text="There are no ratings, get to tasting")
+            return
+        else:
+            context.bot_data["ratings-in-ram"] = True
+    
+    ratings = []
+    for time in rating_times:
+        ratings.append(context.bot_data[f'total-{time}'])
+        ratings.append(context.bot_data[f'n-{time}'])
+    daily = ratings[0] / ratings[1]
+    weekly = ratings[2] / ratings[3]
+    alltime = ratings[4] / ratings[5]
+
+    await context.bot.send_message(chat_id=update.effective_chat.id, text=f'Current ratings:\n\
+Today\'s average: {daily:.3f}\n\
+Weekly average: {weekly:.3f}\n\
+All-time average: {alltime:.5f}')
+
+# Handle inserting a coffee quote
+async def insert_quote(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+    # Message should contain something
+    message_content = update.message.text
+    if message_content == None:
+        await context.bot.send_message(chat_id=update.effective_chat.id, text="Something went wrong!")
+        return
 
     # Message should have at least the command and one other word
     content = message_content.split(' ')
@@ -101,7 +248,7 @@ async def insert_quote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bo
 
     # Aquire a lock for both the temp file in ram, and the persistent file in disk, and write it there
     try:
-        with portalocker.Lock(THOUGHTS, 'a') as output_file:
+        with portalocker.Lock(STORE, 'a') as output_file:
             portalocker.lock(output_file, portalocker.LOCK_EX)
             output_file.write(quote)
             with portalocker.Lock(DATABASE, 'a') as db_file:
@@ -114,7 +261,7 @@ async def insert_quote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bo
 # Handle giving a random coffee quote
 async def coffee_quote(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
-        with portalocker.Lock(THOUGHTS, 'r') as output_file:
+        with portalocker.Lock(STORE, 'r') as output_file:
             lines = output_file.readlines()
             length = len(lines)
 
@@ -139,10 +286,33 @@ I will tell you the status of the coffee machine in ASki!\n\
 Available commands:\n\
  - /help See this message.\n\
  - /coffee See the coffee machine.\n\
+ - /rate Rate ASki's coffee.\n\
+ - /rating See the rating stats of ASki's coffee.\n\
  - /howto Things to remember when making coffee.\n\
  - /howtolong How to make coffee.\n\
  - /addq or /addquote Insert a coffee quote.\n\
  - /q or /quote Randomly give one coffee quote.")
+
+def read_persistent_to_ram(disk_path: str, ram_path: str):
+    try:
+        file_content = ""
+        # portalocker.Lock the input file in read mode
+        with portalocker.Lock(disk_path, 'r') as input_file:
+            # Read the content of the input file
+            file_content = input_file.read()
+
+        # portalocker.Lock the output file in write mode
+        with portalocker.Lock(ram_path, 'w+') as output_file:
+            # Write the content to the output file
+            output_file.write(file_content)
+
+        print(f"Content successfully copied from {disk_path} to {ram_path}")
+
+    except FileNotFoundError:
+        print(f"Error: The file at {disk_path} was not found.")
+
+    except Exception as e:
+        print(f"An error occurred: {str(e)}")
 
 # Initialize and run the bot
 if __name__ == '__main__':
@@ -150,25 +320,13 @@ if __name__ == '__main__':
     # Create the application
     application = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
 
-    try:
-        file_content = ""
-        # portalocker.Lock the input file in read mode
-        with portalocker.Lock(DATABASE, 'r') as input_file:
-            # Read the content of the input file
-            file_content = input_file.read()
-
-        # portalocker.Lock the output file in write mode
-        with portalocker.Lock(THOUGHTS, 'w+') as output_file:
-            # Write the content to the output file
-            output_file.write(file_content)
-
-        print(f"Content successfully copied from {DATABASE} to {THOUGHTS}")
-
-    except FileNotFoundError:
-        print(f"Error: The file at {DATABASE} was not found.")
-
-    except Exception as e:
-        print(f"An error occurred: {str(e)}")
+    # Read ratings and quotes to ram
+    read_persistent_to_ram(DATABASE, STORE)
+    
+    # Add periodically running jobs to clear daily and weekly ratings
+    time_to_clear = datetime.datetime(2023, 1, 8, hour=2)
+    application.job_queue.run_repeating(clear_daily, 60*60*24, first=time_to_clear)
+    application.job_queue.run_repeating(clear_weekly, 60*60*24*7, first=time_to_clear)
 
     # Add handlers
     start_handler = CommandHandler('start', start)
@@ -206,6 +364,12 @@ if __name__ == '__main__':
 
     ct_handler = CommandHandler("quote", coffee_quote)
     application.add_handler(ct_handler)
+
+    rating_handler = CommandHandler("rating", get_rating)
+    application.add_handler(rating_handler)
+
+    rate_handler = CommandHandler("rate", rate_coffee)
+    application.add_handler(rate_handler)
 
     # Run application
     application.run_polling()
