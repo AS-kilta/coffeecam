@@ -86,7 +86,7 @@ async def rate_coffee(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Message should have precisely the command and a single digit integer 0-5
     content = message_content.split(' ')
     if len(content) != 2:
-        await context.bot.send_message(chat_id=update.effective_chat.id, text="This method can be used to insert a /rating.\nUsage: /rate <rating between 0-5 as an integer>")
+        await context.bot.send_message(chat_id=update.effective_chat.id, text="This method can be used to insert a coffee /rating.\nUsage: /rate <rating of ASki's coffee from 0 to 5 as an integer>")
         return
 
     # Rest of the message is the rating, it should be convertible to Int.
@@ -94,11 +94,11 @@ async def rate_coffee(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         rating = int(raw)
     except:
-        await context.bot.send_message(chat_id=update.effective_chat.id, text="Your rating should be a single digit integer between 0-5!")
+        await context.bot.send_message(chat_id=update.effective_chat.id, text="Your coffee rating should be a single digit integer between 0-5!")
         return
         
     if len(raw) > 1 or rating > 5:
-        await context.bot.send_message(chat_id=update.effective_chat.id, text="Your rating should be a single digit integer between 0-5!")
+        await context.bot.send_message(chat_id=update.effective_chat.id, text="Your coffee rating should be a single digit integer between 0-5!")
 
     # Allow only one rating per 10 minutes
     latest_rating: int = context.user_data.get("latest-rating")
@@ -111,7 +111,7 @@ async def rate_coffee(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Record the rating
     if rating_backend(rating, context):
         context.user_data["latest-rating"] = time.time()
-        await context.bot.send_message(chat_id=update.effective_chat.id, text="Recorded rating: " + raw)
+        await context.bot.send_message(chat_id=update.effective_chat.id, text="Recorded coffee rating: " + raw)
     else:
         await context.bot.send_message(chat_id=update.effective_chat.id, text="Something went wrong..")
 
@@ -167,9 +167,6 @@ def clear_weekly(context: ContextTypes.DEFAULT_TYPE):
     pass
 
 def read_ratings_from_disk(context: ContextTypes.DEFAULT_TYPE) -> bool:
-    # if context.bot_data.get("clearers-inited") is None:
-    #     context.bot_data["clearers-inited"] = True
-
     try:
         # portalocker.Lock the input file in read mode
         with portalocker.Lock(DATABASE2, 'r') as input_file:
@@ -199,7 +196,7 @@ async def get_rating(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Calculate and give ratings
     if context.bot_data.get("ratings-in-ram") is None:
         if not read_ratings_from_disk(context):
-            await context.bot.send_message(chat_id=update.effective_chat.id, text="There are no ratings, get to tasting")
+            await context.bot.send_message(chat_id=update.effective_chat.id, text="There are no ratings for ASki's coffee, get to tasting")
             return
         else:
             context.bot_data["ratings-in-ram"] = True
@@ -208,14 +205,23 @@ async def get_rating(update: Update, context: ContextTypes.DEFAULT_TYPE):
     for time in rating_times:
         ratings.append(context.bot_data[f'total-{time}'])
         ratings.append(context.bot_data[f'n-{time}'])
-    daily = ratings[0] / ratings[1]
-    weekly = ratings[2] / ratings[3]
-    alltime = ratings[4] / ratings[5]
 
-    await context.bot.send_message(chat_id=update.effective_chat.id, text=f'Current ratings:\n\
-Today\'s average: {daily:.3f}\n\
-Weekly average: {weekly:.3f}\n\
-All-time average: {alltime:.5f}')
+    # Calculate ratings
+    avg = []
+    for i in range(0, len(ratings), 2):
+        if ratings[i + 1] == 0:
+            avg.append(0)
+        else:
+            avg.append(ratings[i] / ratings[i + 1])
+
+    # Give ratings to user
+    await context.bot.send_message(chat_id=update.effective_chat.id, text=f'Current coffee ratings:\n\
+Today\'s average:\n\
+        - {avg[0]:.2f}     (count: {ratings[1]})\n\
+Weekly average:\n\
+        - {avg[1]:.2f}     (count: {ratings[3]})\n\
+All-time average:\n\
+        - {avg[2]:.4f} (count: {ratings[5]})')
 
 # Handle inserting a coffee quote
 async def insert_quote(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -290,8 +296,8 @@ Available commands:\n\
  - /rating See the rating stats of ASki's coffee.\n\
  - /howto Things to remember when making coffee.\n\
  - /howtolong How to make coffee.\n\
- - /addq or /addquote Insert a coffee quote.\n\
- - /q or /quote Randomly give one coffee quote.")
+ - /addq Insert a coffee quote.\n\
+ - /q Randomly give one coffee quote.")
 
 def read_persistent_to_ram(disk_path: str, ram_path: str):
     try:
@@ -324,9 +330,10 @@ if __name__ == '__main__':
     read_persistent_to_ram(DATABASE, STORE)
     
     # Add periodically running jobs to clear daily and weekly ratings
-    time_to_clear = datetime.datetime(2023, 1, 8, hour=2)
-    application.job_queue.run_repeating(clear_daily, 60*60*24, first=time_to_clear)
-    application.job_queue.run_repeating(clear_weekly, 60*60*24*7, first=time_to_clear)
+    # Daily is cleared every day at 3 am UTC, weekly is cleared every week on Monday at 3 am UTC
+    time_to_clear = datetime.time(hour=3, minute=0)
+    application.job_queue.run_daily(clear_daily, time_to_clear)
+    application.job_queue.run_daily(clear_weekly, time_to_clear, days=[0])
 
     # Add handlers
     start_handler = CommandHandler('start', start)
@@ -356,13 +363,7 @@ if __name__ == '__main__':
     gt_handler = CommandHandler("addq", insert_quote)
     application.add_handler(gt_handler)
 
-    gt_handler = CommandHandler("addquote", insert_quote)
-    application.add_handler(gt_handler)
-
     ct_handler = CommandHandler("q", coffee_quote)
-    application.add_handler(ct_handler)
-
-    ct_handler = CommandHandler("quote", coffee_quote)
     application.add_handler(ct_handler)
 
     rating_handler = CommandHandler("rating", get_rating)
