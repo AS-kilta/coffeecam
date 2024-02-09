@@ -57,9 +57,9 @@ async def rating(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
     if rating_backend(rating, context):
         context.user_data[LATEST_RATING] = time.time()
-        await update.message.reply_text("Recorded coffee rating: " + raw)
+        await update.message.reply_text("Recorded coffee rating: " + raw, ReplyKeyboardRemove())
     else:
-        await update.message.reply_text("Something went wrong..")
+        await update.message.reply_text("Something went wrong..", ReplyKeyboardRemove())
     return ConversationHandler.END
 
 # Handle storing the ratings
