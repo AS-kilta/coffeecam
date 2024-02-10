@@ -20,6 +20,9 @@ def getImage() -> bool:
 	except Exception as g:
 		print("no stream")
 
+	# Set timeout at 10s, and try to read from stream.
+
+	stream.set(cv2.CAP_PROP_OPEN_TIMEOUT_MSEC, 10_000)
 	success, image = stream.read()
 
 	# Save to file if succesfull

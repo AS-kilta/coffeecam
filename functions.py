@@ -45,6 +45,7 @@ async def coffee(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Give general message
 
+    caption_text = ""
     general_message = context.bot_data.get("general-message", "")
     if general_message != "":
         caption_text = context.bot_data.get("general-message")
