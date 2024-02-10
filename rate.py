@@ -137,7 +137,6 @@ def read_ratings_from_disk(context: ContextTypes.DEFAULT_TYPE) -> bool:
             # Read the content of the input file
 
             file_content = input_file.read().split()
-            print(file_content)
 
             if len(file_content) != 6:
                 return False

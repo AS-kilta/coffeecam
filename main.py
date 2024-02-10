@@ -51,7 +51,7 @@ async def clear_general_message(update: Update, context: ContextTypes.DEFAULT_TY
     # Require password in message
 
     if (message_content == None) or (not ADMIN_PASSWD in message_content):
-        await update.message.reply_text("This method clears the general info message to display to users.\nUsage: /clearmessage <password>")
+        await update.message.reply_text("This command clears the general info message to display to users.\nUsage: /clearmessage <password>")
         return
 
     # Clear message and tell it in message.
@@ -75,7 +75,7 @@ async def give_general_message(update: Update, context: ContextTypes.DEFAULT_TYP
 
     content = message_content.split(' ')
     if len(content) <= 2:
-        await update.message.reply_text("This method gives a general info message to display to users.\nUsage: /givemessage <password> <message here>")
+        await update.message.reply_text("This command gives a general info message to display to users.\nUsage: /givemessage <password> <message here>")
 
     # If second word in message is not password, then the password would be in the info message.
 
@@ -106,7 +106,7 @@ async def insert_quote(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     content = message_content.split()
     if len(content) < 2:
-        await update.message.reply_text("This method can be used to insert a /quote.\nUsage: /addq <your quote or thought that may or may not have something to do with coffee>")
+        await update.message.reply_text("This command can be used to insert a /quote.\nUsage: /addq <your quote or thought that may or may not have something to do with coffee>")
         return
 
     # Join rest of the message as the quote, quote should be at least 10 chars long
@@ -253,6 +253,8 @@ if __name__ == '__main__':
     handlers.append(CommandHandler("addq", insert_quote))
 
     handlers.append(CommandHandler("q", coffee_quote))
+
+    handlers.append(CommandHandler("quote", coffee_quote))
 
     handlers.append(CommandHandler("rating", get_rating))
 

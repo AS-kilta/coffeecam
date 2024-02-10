@@ -13,12 +13,16 @@ def getImage() -> bool:
 	url = f"rtsp://{TAPO_USERNAME}:{TAPO_PASSWORD}@{HOST}:{PORT}/stream1"
 	savePath = "/mnt/ramdisk/newest.jpeg"
 
+	# Create stream object.
+
 	try:
 		stream = cv2.VideoCapture(url)
 	except Exception as g:
 		print("no stream")
 
 	success, image = stream.read()
+
+	# Save to file if succesfull
 
 	if success:
 		success = cv2.imwrite(savePath, image)

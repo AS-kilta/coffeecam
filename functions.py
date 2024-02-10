@@ -6,24 +6,20 @@ from app import getImage
 
 # This file contains functions that prob. don't need to be edited.
 
-# Helper to create the caption or text (possibly based on the image or lack thereof)
-def get_answer(photo_url: str) -> str :
-    if photo_url != "":
-        "There definitely is something!"
-    else:
-        return "Something's wrong, I can feel it!"
-
 # Function to fetch photo from Tapo Camera
+
 async def fetch_tapo_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
     latest = context.bot_data.get("latest-time")
 
     # First time calling function. Initialize latest as 25 seconds before,
     # so that a new image will be fetched.
+
     if latest == None:
         latest = time.time() - 25
         context.bot_data["latest-time"] = time.time()
 
     # Don't fetch a new image more often than every 20 seconds.
+
     if time.time() - latest < 20:
         return "/mnt/ramdisk/newest.jpeg"
 
@@ -31,6 +27,7 @@ async def fetch_tapo_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     await context.bot.send_message(chat_id=update.effective_chat.id, text=caption_text)
 
     # If getting an image fails, don't give an old image.
+
     if getImage():
         context.bot_data["latest-time"] = time.time()
         return "/mnt/ramdisk/newest.jpeg"
@@ -38,23 +35,34 @@ async def fetch_tapo_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         return ""
 
 # Handle asking for coffee status.
+
 async def coffee(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
+    # Fetch image
+
     photo_url = ""
-    caption_text = ""
     photo_url = await fetch_tapo_photo(update, context)
-    #caption_text = get_answer(photo_url)
-    general_message = context.bot_data.get("general-message")
-    if (general_message != None) or (general_message == ""):
+
+    # Give general message
+
+    general_message = context.bot_data.get("general-message", "")
+    if general_message != "":
         caption_text = context.bot_data.get("general-message")
 
+    # Overwrite general message, if no photo
+
+    if photo_url == "":
+        caption_text = "Sorry, I wasn't able to get an image :/"
+
     # Send the photo to the user
+
     if photo_url != "":
         await context.bot.send_photo(chat_id=update.effective_chat.id, photo=photo_url, caption=caption_text)
     else:
         await context.bot.send_message(chat_id=update.effective_chat.id, text=caption_text)
 
 # Quick tips to remember when making coffee in ASki.
+
 async def howto(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(
                         chat_id=update.effective_chat.id,
@@ -65,6 +73,7 @@ async def howto(update: Update, context: ContextTypes.DEFAULT_TYPE):
  - Lastly, remember to open the drip lock!")
 
 # How to make coffee with a coffee machine.
+
 async def howtolong(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(
                         chat_id=update.effective_chat.id,

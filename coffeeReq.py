@@ -128,13 +128,13 @@ async def amount(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         await update.message.reply_text("The coffee amount should be an integer between 0-10! Try again.")
         return AMOUNT
     
-    # TODO: remove users from queue
+    # Remove users from the front of the queue based on the number of cups made.
 
     all = context.bot_data.get(QUEUE, [])
 
-    print(all)
-
     for i in range(min(amount//2, len(all))):
+
+        # Inform the users that were in the front of the queue, then delete them
 
         # Requests have: (User id, chat id, message id, expiry time)
 
