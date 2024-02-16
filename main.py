@@ -3,8 +3,8 @@ from telegram import Update, ReplyKeyboardRemove
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, ConversationHandler, MessageHandler
 from decouple import config
 from functions import howto, howtolong, coffee
-from coffeeReq import start_c, amount, cancel, request_coffee, cancel_request
-from rate import clear_daily, clear_weekly, start_r, get_rating, rating
+from coffeeReq import start_c, amount, cancel, request_coffee, cancel_request, make_timeout
+from rate import clear_daily, clear_weekly, start_r, get_rating, rating, rate_timeout
 import time
 from random import randrange, seed
 import portalocker
@@ -268,6 +268,7 @@ if __name__ == '__main__':
         entry_points=[CommandHandler("make", start_c)],
         states={
             AMOUNT: [MessageHandler( ~filters.COMMAND & filters.TEXT, amount)],
+            ConversationHandler.TIMEOUT: [MessageHandler(filters.ALL, make_timeout)]
         },
         fallbacks=[CommandHandler("cancel", cancel)],
         conversation_timeout=60
@@ -280,6 +281,7 @@ if __name__ == '__main__':
         entry_points=[CommandHandler("rate", start_r)],
         states={
             AMOUNT: [MessageHandler( ~filters.COMMAND & filters.TEXT, rating)],
+            ConversationHandler.TIMEOUT: [MessageHandler(filters.ALL, rate_timeout)]
         },
         fallbacks=[CommandHandler("cancel", cancel)],
         conversation_timeout=60

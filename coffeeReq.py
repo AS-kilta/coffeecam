@@ -75,6 +75,13 @@ async def cancel_request(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Something went wrong..")
     return
 
+# End conversation regarding making coffee, when timeout is reached.
+
+async def make_timeout(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    context.bot_data[MAKING_COFFEE] = False
+    await update.message.reply_text("Too slow!", reply_markup=ReplyKeyboardRemove())
+    return ConversationHandler.END
+
 # Start a conversation regarding making coffee.
 
 async def start_c(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:

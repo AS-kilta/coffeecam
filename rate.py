@@ -34,6 +34,12 @@ async def start_r(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     return AMOUNT
 
+# End conversation regarding rating coffee, when timeout is reached.
+
+async def rate_timeout(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    await update.message.reply_text("Too slow!", reply_markup=ReplyKeyboardRemove())
+    return ConversationHandler.END
+
 # Handle user response
 
 async def rating(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
