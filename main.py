@@ -115,6 +115,14 @@ async def insert_quote(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if len(quote) < 10:
         await update.message.reply_text("Your quote should be at least 10 characters long")
         return
+    
+    if "movie" in quote.lower() and "bee" in quote.lower() and "script" in quote.lower():
+        await update.message.reply_text("Bro I'm not putting the Bee Movie script in here")
+        return
+    
+    if len(quote) > 200:
+        await update.message.reply_text("Your quote should be at most 200 characters long")
+        return
 
     # Allow only one quote per 2 hours
 
