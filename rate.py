@@ -25,7 +25,7 @@ async def start_r(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Possible replies
 
-    reply_keyboard = [["0", "1", "2", "3", "4", "5", "/cancel"]]
+    reply_keyboard = [["0", "1", "2", "3", "4", "5"], ["/cancel"]]
     await update.message.reply_text(
         f"How would you rate the last cup of ASki's coffee you tasted?",
         reply_markup=ReplyKeyboardMarkup(

@@ -95,23 +95,25 @@ async def give_general_message(update: Update, context: ContextTypes.DEFAULT_TYP
 
 async def insert_quote(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
-    # Message should contain something
+    # Allow only one quote per 2 hours
 
-    message_content = update.message.text
-    if message_content == None:
-        await update.message.reply_text("Something went wrong!")
+    latest_quote: int = context.user_data.get(LATEST_QUOTE)
+    if latest_quote != None and (time.time() - latest_quote) < 60*60*2:
+        time_until = ( (latest_quote + 60*60*2) - time.time() ) / float(60)
+        response = f'Hol\' up! Only one coffee quote every 2 hours.. Still {time_until:.2f} minutes till the next one, go drink some coffee!'
+        await update.message.reply_text(response)
         return
 
-    # Message should have at least the command and one other word
+    # Ask what user is thinking?
 
-    content = message_content.split()
-    if len(content) < 2:
-        await update.message.reply_text("This command can be used to insert a /quote.\nUsage: /addq <your quote or thought that may or may not have something to do with coffee>")
-        return
+    quote
+    await update.message.reply_text(
+        f"What are you thinking?",
+        quote = update.message.text
+    )
 
-    # Join rest of the message as the quote, quote should be at least 10 chars long
+    # Join the message as the quote, quote should be at least 10 chars long
 
-    quote = " ".join(content[1:])
     if len(quote) < 10:
         await update.message.reply_text("Your quote should be at least 10 characters long")
         return
@@ -124,13 +126,16 @@ async def insert_quote(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Your quote should be at most 200 characters long")
         return
 
-    # Allow only one quote per 2 hours
+    # Ask confirmation
 
-    latest_quote: int = context.user_data.get(LATEST_QUOTE)
-    if latest_quote != None and (time.time() - latest_quote) < 60*60*2:
-        time_until = ( (latest_quote + 60*60*2) - time.time() ) / float(60)
-        response = f'Hol\' up! Only one coffee quote every 2 hours.. Still {time_until:.2f} minutes till the next one, go drink some coffee!'
-        await update.message.reply_text(response)
+    await update.message.reply_text(
+        f"Should '" + quote + "' be added as a quote.",
+        reply_markup=InlineKeyboardMarkup(
+            ["Yes","No"]
+        ))
+
+    if update.message.text == "No":
+        await update.message.reply_text("Discarded your quote.")
         return
 
     # Aquire a lock for both the temp file in ram, and the persistent file in disk, and write it there
