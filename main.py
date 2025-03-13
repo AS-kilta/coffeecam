@@ -10,7 +10,8 @@ from random import randrange, seed
 import portalocker
 import datetime
 import telegram.ext.filters as filters
-import requests
+import aiohttp
+import asyncio
 import json
 
 AMOUNT = range(1)
@@ -221,19 +222,19 @@ def read_persistent_to_ram(disk_path: str, ram_path: str):
         print(f"An error occurred: {str(e)}")
 
 async def ai_quote(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
     # Define the payload
-    prompt = "These are the coffee quotes so far in ASki:\n\n--- start of quotes ---\n"
+    prompt = "These are the coffee quotes so far in ASki:\n\n"
 
     try:
         with portalocker.Lock(STORE, 'r') as output_file:
             lines = output_file.readlines()
             prompt += "\n".join(lines)
     except:
-        await update.message.reply_text("Something went really wrong..")
+        print("ei oo filee")
+        prompt += "No coffee quotes so far in ASki."
 
-    prompt += "\n--- end of quotes ---\n\nGive me a coffee quote!"
-
-    prompt += "Finally, here is a seed for you: " + str(time.time())
+    prompt += "Finally, here is current time to randomize your input a bit more " + str(time.time()) + "\n"
 
     data = {
         "model": "aski-llm",
@@ -241,15 +242,22 @@ async def ai_quote(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "stream": False  # Set to True for streaming response
     }
 
-    # Send the request
-    response = await requests.post(OLLAMA_URL, json=data)
+    timeout = aiohttp.ClientTimeout(total=60)  # 60 seconds timeout
 
-    # Parse and print the response
-    if response.status_code == 200:
-        result = response.json()
-        print(result["response"])  # The generated text
-    else:
-        print("Error:", response.text)
+    async with aiohttp.ClientSession(timeout=timeout) as session:
+        try: 
+            caption_text = "This might take up to a minute.."
+            await context.bot.send_message(chat_id=update.effective_chat.id, text=caption_text)
+
+            async with session.post(OLLAMA_URL, json=data) as response:
+                if response.status == 200:
+                    result = await response.json()
+                    await update.message.reply_text(result["response"])
+                    print("resp:", result["response"])
+                else:
+                    await update.message.reply_text("The AI seems to be sleeping..")
+        except asyncio.TimeoutError:
+            await update.message.reply_text("The AI was too slow..")
 
 # Timeout a conversation, and remove possible keyboard
 
