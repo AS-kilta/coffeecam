@@ -2,3 +2,4 @@ python-decouple
 opencv-python
 python-telegram-bot[job-queue]
 portalocker
+requests

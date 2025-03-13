@@ -10,6 +10,8 @@ from random import randrange, seed
 import portalocker
 import datetime
 import telegram.ext.filters as filters
+import requests
+import json
 
 AMOUNT = range(1)
 
@@ -22,6 +24,8 @@ DATABASE = config('DATABASE')
 
 GENERAL_MESSAGE = 'general-message'
 LATEST_QUOTE = 'latest-quote'
+
+OLLAMA_URL = config('OLLAMA_URL')
 
 # Enable logging
 
@@ -185,7 +189,8 @@ Available commands:\n\
  - /howTo Things to remember when making coffee.\n\
  - /howToLong How to make coffee.\n\
  - /addq Insert a coffee quote.\n\
- - /q Randomly give one coffee quote.")
+ - /q Randomly give one coffee quote.\n\
+ - /aiq Get a coffee quote from the ASki LLM.")
 
 def read_persistent_to_ram(disk_path: str, ram_path: str):
     try:
@@ -214,6 +219,37 @@ def read_persistent_to_ram(disk_path: str, ram_path: str):
 
     except Exception as e:
         print(f"An error occurred: {str(e)}")
+
+async def ai_quote(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Define the payload
+    prompt = "These are the coffee quotes so far in ASki:\n\n--- start of quotes ---\n"
+
+    try:
+        with portalocker.Lock(STORE, 'r') as output_file:
+            lines = output_file.readlines()
+            prompt += "\n".join(lines)
+    except:
+        await update.message.reply_text("Something went really wrong..")
+
+    prompt += "\n--- end of quotes ---\n\nGive me a coffee quote!"
+
+    prompt += "Finally, here is a seed for you: " + str(time.time())
+
+    data = {
+        "model": "aski-llm",
+        "prompt": prompt,
+        "stream": False  # Set to True for streaming response
+    }
+
+    # Send the request
+    response = await requests.post(OLLAMA_URL, json=data)
+
+    # Parse and print the response
+    if response.status_code == 200:
+        result = response.json()
+        print(result["response"])  # The generated text
+    else:
+        print("Error:", response.text)
 
 # Timeout a conversation, and remove possible keyboard
 
@@ -269,6 +305,8 @@ if __name__ == '__main__':
     handlers.append(CommandHandler("request", request_coffee))
 
     handlers.append(CommandHandler("cancelRequest", cancel_request))
+
+    handlers.append(CommandHandler("aiq", ai_quote))
 
     # Conversation handler for making coffee
 
