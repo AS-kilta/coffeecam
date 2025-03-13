@@ -224,17 +224,16 @@ def read_persistent_to_ram(disk_path: str, ram_path: str):
 async def ai_quote(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Define the payload
-    prompt = "These are the coffee quotes so far in ASki:\n\n"
+    prompt = "These are the coffee quotes so far:\n\n"
 
+    num_lines = randrange(11, 15)
     try:
         with portalocker.Lock(STORE, 'r') as output_file:
             lines = output_file.readlines()
-            prompt += "\n".join(lines)
+            prompt += "\n".join(lines[-num_lines:])
     except:
         print("ei oo filee")
-        prompt += "No coffee quotes so far in ASki."
-
-    prompt += "Finally, here is current time to randomize your input a bit more " + str(time.time()) + "\n"
+        prompt += "No coffee quotes so far in ASki.\n"
 
     data = {
         "model": "aski-llm",
@@ -253,7 +252,6 @@ async def ai_quote(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 if response.status == 200:
                     result = await response.json()
                     await update.message.reply_text(result["response"])
-                    print("resp:", result["response"])
                 else:
                     await update.message.reply_text("The AI seems to be sleeping..")
         except asyncio.TimeoutError:
