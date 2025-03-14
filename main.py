@@ -25,6 +25,9 @@ DATABASE = config('DATABASE')
 
 GENERAL_MESSAGE = 'general-message'
 LATEST_QUOTE = 'latest-quote'
+LATEST_AI_QUOTE = 'latest-ai-quote'
+
+TIME_MINUTE = 60
 
 OLLAMA_URL = config('OLLAMA_URL')
 
@@ -132,8 +135,8 @@ async def insert_quote(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Allow only one quote per 2 hours
 
     latest_quote: int = context.user_data.get(LATEST_QUOTE)
-    if latest_quote != None and (time.time() - latest_quote) < 60*60*2:
-        time_until = ( (latest_quote + 60*60*2) - time.time() ) / float(60)
+    if latest_quote != None and (time.time() - latest_quote) < TIME_MINUTE*60*2:
+        time_until = ( (latest_quote + TIME_MINUTE*60*2) - time.time() ) / float(60)
         response = f'Hol\' up! Only one coffee quote every 2 hours.. Still {time_until:.2f} minutes till the next one, go drink some coffee!'
         await update.message.reply_text(response)
         return
@@ -191,7 +194,7 @@ Available commands:\n\
  - /howToLong How to make coffee.\n\
  - /addq Insert a coffee quote.\n\
  - /q Randomly give one coffee quote.\n\
- - /aiq Get a coffee quote from the ASki LLM.")
+ - /aiq Get a coffee quote from ASki Intelligence.")
 
 def read_persistent_to_ram(disk_path: str, ram_path: str):
     try:
@@ -222,6 +225,18 @@ def read_persistent_to_ram(disk_path: str, ram_path: str):
         print(f"An error occurred: {str(e)}")
 
 async def ai_quote(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+
+    # Allow only one quote per 2 hours
+
+    latest_ai_quote: int = context.user_data.get(LATEST_AI_QUOTE)
+    if latest_ai_quote != None and (time.time() - latest_ai_quote) < TIME_MINUTE*10:
+        time_until = ( (latest_ai_quote + TIME_MINUTE*10) - time.time() )
+        response = f'You\'ve used up all your ASki Intelligence tokens. Come back in {time_until:.2f} minutes.'
+        await update.message.reply_text(response)
+        return
+    
+    context.user_data[LATEST_QUOTE] = time.time()
 
     # Define the payload
     prompt = "These are the coffee quotes so far:\n\n"
