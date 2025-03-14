@@ -231,7 +231,7 @@ async def ai_quote(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     latest_ai_quote: int = context.user_data.get(LATEST_AI_QUOTE)
     if latest_ai_quote != None and (time.time() - latest_ai_quote) < TIME_MINUTE*10:
-        time_until = ( (latest_ai_quote + TIME_MINUTE*10) - time.time() )
+        time_until = ( (latest_ai_quote + TIME_MINUTE*10) - time.time() ) / float(60)
         response = f'You\'ve used up all your ASki Intelligence tokens. Come back in {time_until:.2f} minutes.'
         await update.message.reply_text(response)
         return
