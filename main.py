@@ -236,7 +236,7 @@ async def ai_quote(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(response)
         return
     
-    context.user_data[LATEST_QUOTE] = time.time()
+    context.user_data[LATEST_AI_QUOTE] = time.time()
 
     # Define the payload
     prompt = "These are the coffee quotes so far:\n\n"
