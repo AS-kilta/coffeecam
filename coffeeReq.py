@@ -2,11 +2,14 @@ from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove, Update
 from telegram.ext import ContextTypes, ConversationHandler
 import time
 from telegram import Update
+from decouple import config
 
 AMOUNT = range(1)
 QUEUE = 'queue'
 MAKING_COFFEE = 'making-coffee'
 LATEST_REQUEST = 'latest-request'
+COFFEE_MAKE_COUNT_FILE = config('COFFEE_MAKE_COUNT_FILE')
+COFFEE_MAKE_STATUS_FILE = config('COFFEE_MAKE_STATUS_FILE')
 
 # Functions related to the coffee queue
 
@@ -30,6 +33,19 @@ async def request_coffee(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     all.append((update.effective_user.id, update.effective_chat.id, update.effective_message.id, time.time() + 60*15))
     context.bot_data[QUEUE] = all
+
+    # Increment the coffee make count in the file
+    try:
+        with open(COFFEE_MAKE_COUNT_FILE, 'r+') as f:
+            try:
+                count = int(f.read().strip())
+            except Exception:
+                count = 0
+            f.seek(0)
+            f.write(str(count + 1))
+            f.truncate()
+    except Exception as e:
+        print(f"Error updating coffee count: {e}")
 
     await update.message.reply_text("Coffee request counted!")
     pass
@@ -73,6 +89,15 @@ async def cancel_request(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("Coffee request cancelled!")
             return
     await update.message.reply_text("Something went wrong..")
+
+    # write new length of queue to status file
+    try:
+        count = len(all) if isinstance(all, list) else 0
+        with open(COFFEE_MAKE_COUNT_FILE, 'w') as f:
+            f.write(str(count))
+    except Exception as e:
+        print(f"Error updating coffee status: {e}")
+
     return
 
 # End conversation regarding making coffee, when timeout is reached.
@@ -97,7 +122,7 @@ async def start_c(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
     # Possible replies
 
-    reply_keyboard = [["0", "2", "4", "6", "8", "10", "/cancel"]]
+    reply_keyboard = [["0", "2", "4", "6"], ["8", "10", "/cancel"]]
     await update.message.reply_text(
         f"Respond with how many cups of coffee you are making (in addition to possible people you counted in ASki), or /cancel\nCurrently {len(context.bot_data.get(QUEUE, []))} people want coffee according to my calculations.",
         reply_markup=ReplyKeyboardMarkup(
@@ -150,6 +175,19 @@ async def amount(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
     context.bot_data[QUEUE] = all
 
+    # Clear queue in status file
+    try:
+        with open(COFFEE_MAKE_STATUS_FILE, 'w') as f:
+            f.write(str(0))
+    except Exception as e:
+        print(f"Error updating coffee status: {e}")
+    # Clear queue in status file
+    try:
+        with open(COFFEE_MAKE_COUNT_FILE, 'w') as f:
+            f.write(str(0))
+    except Exception as e:
+        print(f"Error updating coffee status: {e}")
+
     # Inform the user
 
     await update.message.reply_text(
@@ -174,6 +212,14 @@ def clean_queue(update: Update, context: ContextTypes.DEFAULT_TYPE):
             del all[i]
     context.bot_data[QUEUE] = all
 
+    # Update the coffee status file
+    try:
+        count = len(all) if isinstance(all, list) else 0
+        with open(COFFEE_MAKE_STATUS_FILE, 'w') as f:
+            f.write(str(count))
+    except Exception as e:
+        print(f"Error updating coffee status: {e}")
+
 # Cancel conversation
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -182,3 +228,28 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     )
     context.bot_data[MAKING_COFFEE] = False
     return ConversationHandler.END
+
+def check_coffee(context: ContextTypes.DEFAULT_TYPE):
+    # read coffee make status file, if 1, clear queue, send response messages and set to 0
+
+    try:
+        with open(COFFEE_MAKE_STATUS_FILE, 'r+') as f:
+            status = f.read().strip()
+            if status == '1':
+                all = context.bot_data.get(QUEUE, [])
+                for req in all:
+                    context.bot.send_message(chat_id=req[1], reply_to_message_id=req[2], text="Someone is making coffee!")
+                context.bot_data[QUEUE] = []
+                f.seek(0)
+                f.write('0')
+                f.truncate()
+    except Exception as e:
+        print(f"Error checking coffee status: {e}")
+
+    # write new length of queue to status file
+    try:
+        count = len(all) if isinstance(all, list) else 0
+        with open(COFFEE_MAKE_COUNT_FILE, 'w') as f:
+            f.write(str(count))
+    except Exception as e:
+        print(f"Error updating coffee status: {e}")

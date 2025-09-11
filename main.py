@@ -3,7 +3,7 @@ from telegram import Update, ReplyKeyboardRemove
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, ConversationHandler, MessageHandler
 from decouple import config
 from functions import howto, howtolong, coffee
-from coffeeReq import start_c, amount, cancel, request_coffee, cancel_request, make_timeout
+from coffeeReq import start_c, amount, cancel, request_coffee, cancel_request, make_timeout, check_coffee
 from rate import clear_daily, clear_weekly, start_r, get_rating, rating, rate_timeout
 import time
 from random import randrange, seed
@@ -393,6 +393,8 @@ if __name__ == '__main__':
     time_to_clear = datetime.time(hour=3, minute=0)
     application.job_queue.run_daily(clear_daily, time_to_clear)
     application.job_queue.run_daily(clear_weekly, time_to_clear, days=[0])
+
+    application.job_queue.run_repeating(check_coffee, interval=10, first=10)
 
     # Gather handlers in a list
     handlers = []
