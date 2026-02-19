@@ -24,7 +24,7 @@ DATABASE2=./persistent/ratings.txt
 COFFEE_MAKE_COUNT_FILE=/coffeeCam/requests/count.txt
 COFFEE_MAKE_STATUS_FILE=/coffeeCam/requests/make.txt
 
-OLLAMA_URL=http://localhost:11434
+OLLAMA_URL=your_local_network
 ```
 
 - HOST is hardcoded in app.py
