@@ -14,7 +14,7 @@ Coffeecam telegram bot to check ASki's coffee machine's status.
 ```env
 TAPO_USERNAME=your_tapo_username
 TAPO_PASSWORD=your_tapo_password
-TELEGRAM_TOKEN=your_telegram_bot_token
+TELEGRAM_TOKEN=your_telegram_bot_token #Take it from BotFather in Telegram
 ADMIN_PASSWD=your_admin_password
 
 STORE=/mnt/ramdisk/store.txt
